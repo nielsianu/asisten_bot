@@ -38,6 +38,12 @@ git commit -m "%COMMIT_MSG%"
 
 echo [3/3] Mem-push perubahan ke GitHub (https://github.com/nielsianu/asisten_bot.git)...
 git push -u origin main
+if %errorlevel% neq 0 (
+    echo.
+    echo [INFO] Remote GitHub berisi commit awal (seperti file README/License bawaan GitHub).
+    echo [INFO] Mengunggah ulang dengan force-push agar codebase lokal terupload sempurna...
+    git push -u origin main --force
+)
 
 echo.
 echo =========================================================
