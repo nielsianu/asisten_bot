@@ -1,0 +1,49 @@
+# ==========================================
+# SECRETS & ENVIRONMENT CONFIGURATION
+# ==========================================
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Credentials & Service Account JSON keys
+credentials.json
+service_account*.json
+*.json
+!package.json
+
+# ==========================================
+# PYTHON VIRTUAL ENV & CACHES
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+ENV/
+.pytest_cache/
+
+# ==========================================
+# DATABASES & LOCAL STORAGE
+# ==========================================
+*.db
+*.sqlite
+*.sqlite3
+data/*.db
+!data/.gitkeep
+
+# ==========================================
+# LOGS
+# ==========================================
+logs/*.log
+!logs/.gitkeep
+*.log
+
+# ==========================================
+# IDE & OS FILES
+# ==========================================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
