@@ -10,12 +10,35 @@ from app.bot.handlers import (
     handle_text_message, handle_callback_query
 )
 
+from telegram import BotCommand
+
 # Logging Setup
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=getattr(logging, settings.log_level.upper(), logging.INFO)
 )
 logger = logging.getLogger("asisten_bot")
+
+
+async def post_init(application):
+    """Register command list in Telegram UI automatically on startup."""
+    commands = [
+        BotCommand("rekap", "Lihat rekap keuangan bulanan"),
+        BotCommand("report", "Lihat tabel transaksi per bulan"),
+        BotCommand("chart", "Grafik pengeluaran vs pemasukan per bulan"),
+        BotCommand("pdf", "Download laporan keuangan PDF tahunan"),
+        BotCommand("saldo", "Ringkasan saldo seluruh akun"),
+        BotCommand("top", "Top 10 pengeluaran terbesar"),
+        BotCommand("sync", "Sinkronkan data dari Google Sheets"),
+        BotCommand("status", "Cek status sistem"),
+        BotCommand("undo", "Membatalkan transaksi terakhir"),
+        BotCommand("help", "Panduan bantuan & daftar perintah"),
+    ]
+    try:
+        await application.bot.set_my_commands(commands)
+        logger.info("Successfully registered bot command menu in Telegram UI.")
+    except Exception as e:
+        logger.warning(f"Failed to set Telegram bot commands UI menu: {e}")
 
 
 def build_application():
@@ -31,8 +54,8 @@ def build_application():
     logger.info("Initializing Google Sheets cache sync...")
     sync_sheet_cache()
 
-    # 3. Create Telegram App
-    app = ApplicationBuilder().token(settings.telegram_bot_token).build()
+    # 3. Create Telegram App with post_init
+    app = ApplicationBuilder().token(settings.telegram_bot_token).post_init(post_init).build()
 
     # 4. Register Command Handlers
     app.add_handler(CommandHandler("start", start_command))
