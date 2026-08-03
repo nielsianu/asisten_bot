@@ -93,27 +93,49 @@ class SheetsClient:
         row = tx.to_sheet_row()
         ws.append_row(row, value_input_option="USER_ENTERED")
 
-    def fetch_recent_transactions(self, limit: int = 10) -> List[Transaction]:
-        """Fetch recent transactions from Transactions worksheet."""
+    def fetch_all_transactions(self) -> List[Transaction]:
+        """Fetch all transactions from Transactions worksheet."""
         ws = self.spreadsheet.worksheet("Transactions")
         records = ws.get_all_records()
         txs = []
-        for r in records[-limit:]:
+        for r in records:
             if r.get("ID"):
+                def parse_num(val, default=0.0):
+                    if isinstance(val, (int, float)):
+                        return float(val)
+                    try:
+                        clean_str = str(val).strip().replace(".", "").replace(",", ".")
+                        return float(clean_str) if clean_str else default
+                    except Exception:
+                        return default
+
+                def parse_int(val, default=100):
+                    if isinstance(val, int):
+                        return val
+                    try:
+                        return int(val)
+                    except Exception:
+                        return default
+
                 txs.append(Transaction(
                     id=str(r.get("ID")),
-                    date=str(r.get("Date")),
-                    time=str(r.get("Time")),
-                    type=str(r.get("Type")),
-                    business=str(r.get("Business")),
-                    category=str(r.get("Category")),
-                    account=str(r.get("Account")),
-                    amount=float(r.get("Amount", 0)),
+                    date=str(r.get("Date", "")),
+                    time=str(r.get("Time", "")),
+                    type=str(r.get("Type", "Expense")),
+                    business=str(r.get("Business", "Household")),
+                    category=str(r.get("Category", "Lainnya")),
+                    account=str(r.get("Account", "Cash")),
+                    amount=parse_num(r.get("Amount", 0)),
                     description=str(r.get("Description", "")),
                     source=str(r.get("Source", "Telegram")),
-                    ai_confidence=int(r.get("AI Confidence", 100))
+                    ai_confidence=parse_int(r.get("AI Confidence", 100))
                 ))
         return txs
+
+    def fetch_recent_transactions(self, limit: int = 1000) -> List[Transaction]:
+        """Fetch recent transactions from Transactions worksheet."""
+        all_txs = self.fetch_all_transactions()
+        return all_txs[-limit:] if limit > 0 else all_txs
 
     def overwrite_transactions(self, txs: List[Transaction]):
         """Overwrite the entire Transactions worksheet with local SQLite transactions."""

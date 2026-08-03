@@ -85,6 +85,18 @@ def test_synonym_enrichment():
     assert ex3.amount == 72000.0
 
 
+    # Sayuran keyword test examples
+    res_sayur1 = RegexParser.parse("beli sayuran 50rb pakai blu")
+    enriched_sayur1 = SynonymParser.enrich(res_sayur1)
+    assert enriched_sayur1.category == "Belanja Dapur"
+    assert enriched_sayur1.business == "Household"
+
+    res_sayur2 = RegexParser.parse("bayar sayuran katering 150k cash")
+    enriched_sayur2 = SynonymParser.enrich(res_sayur2)
+    assert enriched_sayur2.category == "Bahan Baku"
+    assert enriched_sayur2.business == "Catering"
+
+
 def test_parser_pipeline():
     """Test full multi-layer pipeline."""
     res = ParserPipeline.parse("beli sayur dan bumbu 50k cash")
@@ -93,6 +105,12 @@ def test_parser_pipeline():
     assert res.category == "Belanja Dapur"
     assert res.account == "Cash"
     assert res.is_confident is True
+
+    res2 = ParserPipeline.parse("beli sayuran 75rb blu")
+    assert res2.success is True
+    assert res2.amount == 75000.0
+    assert res2.category == "Belanja Dapur"
+    assert res2.account == "Blu BCA"
 
 
 def test_transaction_service_and_undo():

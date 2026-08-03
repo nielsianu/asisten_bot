@@ -24,5 +24,6 @@
 - **Enhanced `/help` & `/rekap` Commands**:
   - `/help` now lists all available commands with usage examples.
   - `/rekap` now calculates total income, total expense, cash flow, and catering profit. Added flexible month & year parameters (e.g., `/rekap juni 2026`, `/rekap 2026-06`).
+- **Dependencies Update**: Added `pydantic-settings>=2.0.0` to [requirements.txt](file:///d:/PJ/antigravity/asisten_bot/requirements.txt) to resolve `ModuleNotFoundError: No module named 'pydantic_settings'` on Linux server deployments.
 - **Bugfix**: Fixed `NameError: name 'SheetsClient' is not defined` in `sync_command` by importing `SheetsClient` in [app/bot/handlers.py](file:///d:/PJ/antigravity/asisten_bot/app/bot/handlers.py). Added unit test `test_sync_command_handler` in [tests/test_phase3_4.py](file:///d:/PJ/antigravity/asisten_bot/tests/test_phase3_4.py).
 - Comprehensive Unit & Integration Test suites ([tests/test_phase1.py](file:///d:/PJ/antigravity/asisten_bot/tests/test_phase1.py), [tests/test_phase2.py](file:///d:/PJ/antigravity/asisten_bot/tests/test_phase2.py), [tests/test_phase3_4.py](file:///d:/PJ/antigravity/asisten_bot/tests/test_phase3_4.py)) — 100% Passed (16/16 tests).

@@ -63,8 +63,41 @@ class DashboardService:
 
     @staticmethod
     def get_summary(target_month: Optional[str] = None) -> Dict[str, Any]:
-        """Compute financial balances and metrics for a specific month (YYYY-MM)."""
-        accounts = CacheRepository.get_cached_accounts()
+        """Compute financial balances and metrics for a specific month (YYYY-MM).
+        Uses Google Sheets as primary live database, falling back to local SQLite cache if offline.
+        """
+        is_live = False
+        accounts = []
+        recent_txs = []
+
+        # 1. Primary: Try fetching live data from Google Sheets
+        try:
+            from app.sheets.client import SheetsClient
+            sheets_client = SheetsClient()
+            sheet_accounts = sheets_client.fetch_accounts()
+            sheet_txs = sheets_client.fetch_all_transactions()
+
+            if sheet_accounts:
+                accounts = sheet_accounts
+                CacheRepository.cache_accounts(accounts)
+
+            if sheet_txs:
+                recent_txs = sheet_txs
+                TransactionRepository.sync_transactions_from_sheet(sheet_txs)
+
+            # Also check if there are any local unsynced offline txs to include
+            unsynced = TransactionRepository.get_unsynced_transactions()
+            if unsynced:
+                existing_ids = {t.id for t in recent_txs}
+                for u_tx in unsynced:
+                    if u_tx.id not in existing_ids:
+                        recent_txs.append(u_tx)
+
+            is_live = True
+        except Exception as e:
+            logger.warning(f"Google Sheets live fetch failed: {e}. Falling back to SQLite backup cache.")
+            accounts = CacheRepository.get_cached_accounts()
+            recent_txs = TransactionRepository.get_recent_transactions(limit=1000)
 
         if not target_month:
             target_month = datetime.now().strftime("%Y-%m")
@@ -73,8 +106,6 @@ class DashboardService:
         month_name = MONTH_NAMES_ID.get(month_num, month_num)
         formatted_month_label = f"{month_name} {year_str}"
 
-        # Fetch transactions from local SQLite repository
-        recent_txs = TransactionRepository.get_recent_transactions(limit=1000)
         month_txs = [t for t in recent_txs if t.date.startswith(target_month)]
 
         total_income = sum(t.amount for t in month_txs if t.type == "Income")
@@ -104,5 +135,6 @@ class DashboardService:
             "top_expenses": sorted_top_expenses,
             "month": target_month,
             "month_label": formatted_month_label,
-            "month_transactions": month_txs[:10]  # Top 10 recent transactions for target month
+            "month_transactions": month_txs[:10],  # Top 10 recent transactions for target month
+            "is_live": is_live
         }

@@ -20,27 +20,25 @@ def setup_db(tmp_path):
     settings.database_path = original_db
 
 
-def test_dashboard_service_summary():
+@patch("app.sheets.client.SheetsClient.fetch_all_transactions")
+@patch("app.sheets.client.SheetsClient.fetch_accounts")
+def test_dashboard_service_summary(mock_fetch_accs, mock_fetch_txs):
     """Test dashboard calculations for income, expense, and catering profit."""
-    # Seed mock accounts
-    CacheRepository.cache_accounts([
+    mock_accs = [
         Account(id="1", account_name="Cash", type="Cash", current_balance=500000),
         Account(id="2", account_name="BCA", type="Bank", current_balance=2000000)
-    ])
-
-    # Seed mock transactions
-    TransactionRepository.save_transaction(Transaction(
-        type="Expense", business="Household", category="Belanja Dapur", account="Cash", amount=150000, description="Sayur"
-    ))
-    TransactionRepository.save_transaction(Transaction(
-        type="Income", business="Catering", category="Penjualan", account="BCA", amount=1000000, description="Pesanan Nasi Box"
-    ))
-    TransactionRepository.save_transaction(Transaction(
-        type="Expense", business="Catering", category="Bahan Baku", account="BCA", amount=400000, description="Daging katering"
-    ))
+    ]
+    mock_txs = [
+        Transaction(type="Expense", business="Household", category="Belanja Dapur", account="Cash", amount=150000, description="Sayur"),
+        Transaction(type="Income", business="Catering", category="Penjualan", account="BCA", amount=1000000, description="Pesanan Nasi Box"),
+        Transaction(type="Expense", business="Catering", category="Bahan Baku", account="BCA", amount=400000, description="Daging katering")
+    ]
+    mock_fetch_accs.return_value = mock_accs
+    mock_fetch_txs.return_value = mock_txs
 
     summary = DashboardService.get_summary()
 
+    assert summary["is_live"] is True
     assert summary["total_income"] == 1000000.0
     assert summary["total_expense"] == 550000.0
     assert summary["net_cash_flow"] == 450000.0
@@ -48,6 +46,17 @@ def test_dashboard_service_summary():
     assert summary["catering_expense"] == 400000.0
     assert summary["catering_profit"] == 600000.0
     assert len(summary["top_expenses"]) >= 1
+
+    # Test Fallback Mode when Sheets API raises error
+    mock_fetch_txs.side_effect = Exception("API connection down")
+    CacheRepository.cache_accounts(mock_accs)
+    for t in mock_txs:
+        TransactionRepository.save_transaction(t)
+
+    fallback_summary = DashboardService.get_summary()
+    assert fallback_summary["is_live"] is False
+    assert fallback_summary["total_income"] == 1000000.0
+    assert fallback_summary["total_expense"] == 550000.0
 
 
 @patch("requests.post")

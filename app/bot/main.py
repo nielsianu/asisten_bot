@@ -6,7 +6,7 @@ from app.database.connection import init_db
 from app.services.sheet_sync import sync_sheet_cache
 from app.bot.handlers import (
     start_command, help_command, status_command, sync_command, rekap_command,
-    saldo_command, top_command, undo_command,
+    saldo_command, top_command, undo_command, report_command, chart_command, pdf_command,
     handle_text_message, handle_callback_query
 )
 
@@ -40,6 +40,9 @@ def build_application():
     app.add_handler(CommandHandler("status", status_command))
     app.add_handler(CommandHandler("sync", sync_command))
     app.add_handler(CommandHandler("rekap", rekap_command))
+    app.add_handler(CommandHandler("report", report_command))
+    app.add_handler(CommandHandler("chart", chart_command))
+    app.add_handler(CommandHandler("pdf", pdf_command))
     app.add_handler(CommandHandler("saldo", saldo_command))
     app.add_handler(CommandHandler("top", top_command))
     app.add_handler(CommandHandler("undo", undo_command))

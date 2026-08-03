@@ -26,6 +26,25 @@ class TransactionRepository:
         conn.close()
 
     @staticmethod
+    def sync_transactions_from_sheet(txs: List[Transaction]):
+        """Mirror transactions fetched from Google Sheets into local SQLite repository.
+        Preserves any unsynced local offline transactions.
+        """
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        for tx in txs:
+            cursor.execute("""
+                INSERT OR REPLACE INTO transactions 
+                (id, date, time, type, business, category, account, amount, description, source, ai_confidence, synced_to_sheet)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+            """, (
+                tx.id, tx.date, tx.time, tx.type, tx.business, tx.category,
+                tx.account, tx.amount, tx.description, tx.source, tx.ai_confidence
+            ))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
     def get_recent_transactions(limit: int = 10) -> List[Transaction]:
         conn = get_db_connection()
         cursor = conn.cursor()

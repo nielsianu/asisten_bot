@@ -72,7 +72,10 @@ class NineRouterClient:
             '  "account": string (e.g. Cash, Blu BCA, BCA, Mandiri, QRIS, E-Wallet),\n'
             '  "amount": number (numeric amount in IDR),\n'
             '  "description": string\n'
-            "}"
+            "}\n"
+            "Rules for category:\n"
+            "- For groceries, food ingredients, vegetables ('sayuran', 'sayur'), spices, meats: use 'Belanja Dapur' if business is Household, or 'Bahan Baku' if business is Catering.\n"
+            "- Avoid defaulting to 'Lainnya' unless no specific category fits."
         )
 
         headers = {

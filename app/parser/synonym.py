@@ -9,20 +9,20 @@ class SynonymParser:
     """Matches text keywords against cached Google Sheets categories and accounts."""
 
     DEFAULT_CATEGORIES = [
-        Category.from_raw_keywords("1", "Household", "Expense", "Belanja Dapur", "beras, sayur, minyak, bumbu, daging, telur, ayam, ikan, udang, cabai, cabe, bawang, tepung, tahu, tempe, buah, lauk, belanja dapur, sembako"),
-        Category.from_raw_keywords("2", "Household", "Expense", "Tagihan", "listrik, air, wifi, pulsa, token"),
-        Category.from_raw_keywords("3", "Household", "Expense", "Transport", "bensin, parkir, tol, ojol, grab, gojek"),
-        Category.from_raw_keywords("4", "Household", "Expense", "Jajan", "kopi, cemilan, es krim, boba, jajan"),
-        Category.from_raw_keywords("5", "Household", "Expense", "Hiburan", "nonton, bioskop, game, netflix, spotify"),
-        Category.from_raw_keywords("6", "Household", "Expense", "Kesehatan", "obat, dokter, vitamin, apotek"),
-        Category.from_raw_keywords("7", "Household", "Expense", "Pendidikan", "buku, kursus, spp, sekolah"),
-        Category.from_raw_keywords("8", "Household", "Expense", "Rumah Tangga", "sabun, detergen, perkakas, perlengkapan"),
+        Category.from_raw_keywords("1", "Household", "Expense", "Belanja Dapur", "sayuran, sayur, sayur-sayuran, sayur2an, sayur-mayur, beras, minyak, bumbu, daging, telur, ayam, ikan, udang, cabai, cabe, bawang, tepung, tahu, tempe, buah, lauk, lauk pauk, belanja dapur, sembako, bahan dapur, bumbu dapur"),
+        Category.from_raw_keywords("2", "Household", "Expense", "Tagihan", "listrik, air, wifi, pulsa, token, pdam, indihome, biznet, paket data"),
+        Category.from_raw_keywords("3", "Household", "Expense", "Transport", "bensin, parkir, tol, ojol, grab, gojek, pertalite, pertamax, max, bbm, angkot, busway"),
+        Category.from_raw_keywords("4", "Household", "Expense", "Jajan", "kopi, cemilan, es krim, boba, jajan, makan, makanan, minum, minuman, sarapan, makan siang, makan malam, warung, resto, restoran, cafe, bakery, kue"),
+        Category.from_raw_keywords("5", "Household", "Expense", "Hiburan", "nonton, bioskop, game, netflix, spotify, youtube, steam, voucher"),
+        Category.from_raw_keywords("6", "Household", "Expense", "Kesehatan", "obat, dokter, vitamin, apotek, puskesmas, rumah sakit, klinik"),
+        Category.from_raw_keywords("7", "Household", "Expense", "Pendidikan", "buku, kursus, spp, sekolah, les, kuliah"),
+        Category.from_raw_keywords("8", "Household", "Expense", "Rumah Tangga", "sabun, detergen, perkakas, perlengkapan, tisue, tisu, galon, kebersihan, pembersih"),
         Category.from_raw_keywords("9", "Household", "Expense", "Lainnya", "misc, pengeluaran lain"),
-        Category.from_raw_keywords("10", "Household", "Income", "Gaji", "gaji, payroll, salary"),
+        Category.from_raw_keywords("10", "Household", "Income", "Gaji", "gaji, payroll, salary, insentif, thrum, bonus"),
         Category.from_raw_keywords("11", "Catering", "Income", "Penjualan", "pesanan, katering, nasi box, catering, order, menerima, pembayaran, pelunasan, tagihan, dp, lunas, bayaran, omset, penjualan, transferan, masuk"),
-        Category.from_raw_keywords("12", "Catering", "Expense", "Bahan Baku", "sayur, ayam, daging, bumbu, beras, telur, ikan, udang, cabai, cabe, bawang, minyak, tepung, tahu, tempe, buah, bahan, lauk, belanja, sembako, bahan baku"),
-        Category.from_raw_keywords("13", "Catering", "Expense", "Kemasan", "box, mika, plastik, sendok, sterofoam, dus, kemasan"),
-        Category.from_raw_keywords("14", "Catering", "Expense", "Gas", "elpiji, gas 3kg, gas 12kg, gas"),
+        Category.from_raw_keywords("12", "Catering", "Expense", "Bahan Baku", "sayuran, sayur, sayur-sayuran, sayur2an, sayur-mayur, ayam, daging, bumbu, beras, telur, ikan, udang, cabai, cabe, bawang, minyak, tepung, tahu, tempe, buah, bahan, lauk, lauk pauk, belanja, sembako, bahan baku, bumbu katering"),
+        Category.from_raw_keywords("13", "Catering", "Expense", "Kemasan", "box, mika, plastik, sendok, sterofoam, dus, kemasan, kantong, thinwall, paperbowl"),
+        Category.from_raw_keywords("14", "Catering", "Expense", "Gas", "elpiji, gas 3kg, gas 12kg, gas, lpg"),
     ]
 
     @classmethod

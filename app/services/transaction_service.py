@@ -27,22 +27,22 @@ class TransactionService:
 
     @staticmethod
     def save_transaction(tx: Transaction) -> Tuple[bool, str]:
-        """Save transaction to local SQLite cache and append to Google Sheets."""
+        """Save transaction directly to primary database (Google Sheets) and update SQLite mirror."""
         try:
-            # 1. Save to SQLite cache
-            TransactionRepository.save_transaction(tx, synced=True)
-
-            # 2. Append to Google Sheets
+            # 1. Append directly to primary database (Google Sheets)
             sheets_client = SheetsClient()
             sheets_client.append_transaction(tx)
 
-            logger.info(f"Transaction {tx.id} saved successfully to SQLite and Google Sheets.")
-            return True, f"Status: Berhasil dicatat (ID: {tx.id})"
+            # 2. Update local SQLite mirror cache with synced=True
+            TransactionRepository.save_transaction(tx, synced=True)
+
+            logger.info(f"Transaction {tx.id} saved successfully to primary database (Google Sheets).")
+            return True, f"Status: Berhasil dicatat ke Google Sheets (ID: {tx.id})"
         except Exception as e:
-            logger.error(f"Failed to save transaction {tx.id}: {e}", exc_info=True)
-            # Save locally as unsynced
+            logger.error(f"Failed to append transaction {tx.id} to Google Sheets: {e}", exc_info=True)
+            # Offline backup: Save locally to SQLite with synced=False
             TransactionRepository.save_transaction(tx, synced=False)
-            return False, f"Status: Tersimpan di cache lokal (Gagal sync ke Sheets: {e})"
+            return False, f"Status: Saved to offline backup cache (Google Sheets connection error: {e})"
 
     @staticmethod
     def undo_last_transaction() -> Tuple[bool, str]:

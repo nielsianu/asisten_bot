@@ -27,6 +27,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "secara otomatis ke Google Sheets.\n\n"
         "📌 *Perintah Utama:*\n"
         "• `/rekap` - Lihat saldo & ringkasan transaksi\n"
+        "• `/report [bulan]` - Lihat tabel transaksi per bulan\n"
+        "• `/chart` - Grafik pengeluaran (merah) vs pemasukan (hijau)\n"
+        "• `/pdf [tahun]` - Download laporan keuangan PDF profesional\n"
         "• `/sync` - Sinkronkan akun & kategori dari Google Sheets\n"
         "• `/status` - Cek status sistem\n"
         "• `/undo` - Membatalkan transaksi terakhir\n"
@@ -50,10 +53,13 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📌 *Perintah Utama:*\n"
         "• `/start` - Inisialisasi bot & pesan selamat datang\n"
         "• `/help` - Tampilkan panduan & semua perintah bot\n"
-        "• `/rekap [bulan] [tahun]` - Rekap keuangan bulanan (contoh: `/rekap`, `/rekap juni 2026`, `/rekap 2026-06`)\n"
+        "• `/rekap [bulan] [tahun]` - Rekap keuangan bulanan (contoh: `/rekap`, `/rekap juni 2026`)\n"
+        "• `/report [bulan] [tahun]` - Tabel daftar transaksi per bulan (contoh: `/report`, `/report juli`)\n"
+        "• `/chart` - Gambar grafik batang perbandingan pengeluaran vs pemasukan per bulan\n"
+        "• `/pdf [tahun]` - File PDF Laporan Keuangan Tahunan (contoh: `/pdf`, `/pdf 2026`)\n"
         "• `/saldo` - Ringkasan saldo seluruh akun (Cash, Bank, E-Wallet)\n"
-        "• `/top [bulan]` - Top 10 pengeluaran terbesar (contoh: `/top`, `/top juni 2026`)\n"
-        "• `/sync` - Perbarui cache kategori & akun dari Google Sheets\n"
+        "• `/top [bulan]` - Top 10 pengeluaran terbesar\n"
+        "• `/sync` - Perbarui cache & sinkronkan data dari Google Sheets\n"
         "• `/status` - Cek status kesehatan sistem & database lokal\n"
         "• `/undo` - Membatalkan transaksi terakhir yang dicatat\n\n"
         "💬 *Pencatatan Otomatis (Ketik Langsung):*\n"
@@ -83,20 +89,23 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def sync_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler for /sync command."""
+    """Handler for /sync command: syncs Categories, Accounts, and Transactions from Google Sheets to local SQLite backup mirror."""
     if not is_user_allowed(update.effective_user):
         return
 
-    await update.message.reply_text("🔄 Memulai sinkronisasi cache dari Google Sheets...")
-    success, acc_count, cat_count = sync_sheet_cache()
+    await update.message.reply_text("🔄 Memulai sinkronisasi data dengan Google Sheets...", parse_mode="Markdown")
+    success, acc_count, cat_count, tx_count, pushed_count = sync_sheet_cache()
 
     if success:
-        await update.message.reply_text(
-            f"✅ *Sinkronisasi Berhasil!*\n\n"
-            f"• Akun diperbarui: {acc_count}\n"
-            f"• Kategori diperbarui: {cat_count}",
-            parse_mode="Markdown"
+        msg = (
+            f"✅ *SINKRONISASI BERHASIL*\n\n"
+            f"• *Kategori Terbarui:* {cat_count} item\n"
+            f"• *Akun Terbarui:* {acc_count} akun\n"
+            f"• *Transaksi Disinkronkan:* {tx_count} transaksi dari Google Sheets\n"
         )
+        if pushed_count > 0:
+            msg += f"• *Transaksi Offline Terkirim:* {pushed_count} transaksi ke Google Sheets\n"
+        await update.message.reply_text(msg, parse_mode="Markdown")
     else:
         await update.message.reply_text("❌ Gagal melakukan sinkronisasi dengan Google Sheets.")
 
@@ -358,41 +367,78 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
         await query.edit_message_text(f"⚠️ Terjadi kesalahan saat memproses tombol: {e}")
 
 
-async def sync_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler for /sync command: syncs Categories, Accounts, and cleans & aligns Google Sheets with local SQLite DB."""
+async def report_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for /report command: Displays formatted table of transactions for target month."""
     if not is_user_allowed(update.effective_user):
         return
 
-    await update.message.reply_text("🔄 Memulai sinkronisasi & pembersihan data dengan Google Sheets...", parse_mode="Markdown")
+    from app.services.report_service import ReportService
+    target_month = parse_target_month(context.args or [])
+
+    chunks = ReportService.generate_transaction_report(target_month)
+    for chunk in chunks:
+        await update.message.reply_text(chunk, parse_mode="Markdown")
+
+
+async def chart_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for /chart command: Generates and sends bar chart of Expense (red) vs Income (green)."""
+    if not is_user_allowed(update.effective_user):
+        return
+
+    from app.services.report_service import ReportService
+    status_msg = await update.message.reply_text("📊 *Sedang me-render grafik bulanan...*", parse_mode="Markdown")
+
     try:
-        sheets_client = SheetsClient()
-
-        # 1. Sync Categories & Accounts
-        categories = sheets_client.fetch_categories()
-        accounts = sheets_client.fetch_accounts()
-        if categories:
-            CacheRepository.cache_categories(categories)
-        if accounts:
-            CacheRepository.cache_accounts(accounts)
-
-        # 2. Align & Overwrite Google Sheets Transactions tab with clean local SQLite data
-        local_txs = TransactionRepository.get_recent_transactions(limit=1000)
-        # Reverse to chronological order for sheet rows (oldest first, newest at bottom)
-        chronological_txs = list(reversed(local_txs))
-        sheets_client.overwrite_transactions(chronological_txs)
-
-        # Mark all local txs as synced
-        for tx in local_txs:
-            TransactionRepository.mark_as_synced(tx.id)
-
-        msg = (
-            f"✅ *SINKRONISASI & PEMBERSIHAN BERHASIL*\n\n"
-            f"• *Kategori Terbarui:* {len(categories)} item\n"
-            f"• *Akun Terbarui:* {len(accounts)} akun\n"
-            f"• *Google Sheet Diselaraskan:* {len(local_txs)} transaksi lokal (dummy dibersihkan)\n"
-        )
-        await update.message.reply_text(msg, parse_mode="Markdown")
+        chart_path = ReportService.generate_monthly_chart()
+        with open(chart_path, "rb") as photo_file:
+            await update.message.reply_photo(
+                photo=photo_file,
+                caption="📊 *Grafik Bulanan Pemasukan (Hijau) vs Pengeluaran (Merah)*",
+                parse_mode="Markdown"
+            )
+        try:
+            await status_msg.delete()
+        except Exception:
+            pass
     except Exception as e:
-        logger.error(f"Sync command failed: {e}", exc_info=True)
-        await update.message.reply_text(f"⚠️ Gagal melakukan sinkronisasi: {e}")
+        logger.error(f"Chart generation error: {e}", exc_info=True)
+        await update.message.reply_text(f"⚠️ Gagal membuat grafik: {e}")
+
+
+async def pdf_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for /pdf command: Generates and sends professional annual financial PDF report."""
+    if not is_user_allowed(update.effective_user):
+        return
+
+    from app.services.report_service import ReportService
+    from datetime import datetime
+
+    # Parse target year from args (e.g. /pdf 2026) or default to current year
+    target_year = str(datetime.now().year)
+    if context.args:
+        for arg in context.args:
+            arg_clean = arg.strip()
+            if arg_clean.isdigit() and len(arg_clean) == 4:
+                target_year = arg_clean
+                break
+
+    status_msg = await update.message.reply_text(f"📄 *Sedang menyusun laporan keuangan PDF tahun {target_year}...*", parse_mode="Markdown")
+
+    try:
+        pdf_path = ReportService.generate_annual_pdf_report(target_year)
+        with open(pdf_path, "rb") as doc_file:
+            await update.message.reply_document(
+                document=doc_file,
+                filename=f"Laporan_Keuangan_{target_year}.pdf",
+                caption=f"📄 *Laporan Keuangan Tahunan ({target_year})*",
+                parse_mode="Markdown"
+            )
+        try:
+            await status_msg.delete()
+        except Exception:
+            pass
+    except Exception as e:
+        logger.error(f"PDF report generation error: {e}", exc_info=True)
+        await update.message.reply_text(f"⚠️ Gagal membuat file PDF: {e}")
+
 
