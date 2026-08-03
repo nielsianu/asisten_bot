@@ -445,7 +445,16 @@ class ReportService:
             "Jajan": 500000.0
         }
 
-        budget_limits = {**default_budgets, **sheets_budgets}
+        budget_limits = {}
+        if sheets_budgets:
+            for s_name, s_val in sheets_budgets.items():
+                if s_val > 0:
+                    budget_limits[s_name] = s_val
+
+        # Fallback to default budgets for any standard categories not in sheets_budgets
+        for d_name, d_val in default_budgets.items():
+            if not any(b.lower() == d_name.lower() for b in budget_limits.keys()):
+                budget_limits[d_name] = d_val
 
         # 2. Build Category -> Budget Category mapping
         cat_to_budget = {}

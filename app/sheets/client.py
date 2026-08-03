@@ -1,4 +1,6 @@
 import os
+import re
+import logging
 from typing import List, Optional, Dict
 import gspread
 from google.oauth2.service_account import Credentials
@@ -6,6 +8,50 @@ from app.config.settings import settings
 from app.models.account import Account
 from app.models.category import Category
 from app.models.transaction import Transaction
+
+logger = logging.getLogger(__name__)
+
+
+def parse_currency_num(val, default: float = 0.0) -> float:
+    """Safely parse numbers from Google Sheets cells containing IDR formatting (e.g. 'Rp 2.000.000,00', '2.500.000', etc.)."""
+    if isinstance(val, (int, float)):
+        return float(val)
+    if not val:
+        return default
+    try:
+        val_str = str(val).strip()
+        if val_str.startswith("="):
+            return default
+        # Remove currency symbols (Rp, rp, RP) and non-numeric chars except digits, dots, commas
+        clean = re.sub(r"[^\d\.,]", "", val_str)
+        if not clean:
+            return default
+
+        if "." in clean and "," in clean:
+            if clean.find(".") < clean.find(","):  # e.g. 2.000.000,00
+                clean = clean.replace(".", "").replace(",", ".")
+            else:  # e.g. 2,000,000.00
+                clean = clean.replace(",", "")
+        elif "." in clean:
+            if clean.count(".") > 1:  # e.g. 2.000.000
+                clean = clean.replace(".", "")
+            else:
+                parts = clean.split(".")
+                if len(parts[1]) == 3:  # IDR thousand separator e.g. 250.000
+                    clean = clean.replace(".", "")
+        elif "," in clean:
+            if clean.count(",") > 1:  # e.g. 2,000,000
+                clean = clean.replace(",", "")
+            else:
+                parts = clean.split(",")
+                if len(parts[1]) == 3:
+                    clean = clean.replace(",", "")
+                else:
+                    clean = clean.replace(",", ".")
+
+        return float(clean)
+    except Exception:
+        return default
 
 
 class SheetsClient:
@@ -45,20 +91,8 @@ class SheetsClient:
         accounts = []
         for r in records:
             if str(r.get("Active", "TRUE")).upper() == "TRUE":
-                # Handle numeric conversion safely
-                def parse_float(val, default=0.0):
-                    if isinstance(val, (int, float)):
-                        return float(val)
-                    try:
-                        val_str = str(val).strip()
-                        if val_str.startswith("="):
-                            return default
-                        return float(val_str)
-                    except (ValueError, TypeError):
-                        return default
-
-                init_bal = parse_float(r.get("Initial Balance"), 0.0)
-                curr_bal = parse_float(r.get("Current Balance"), init_bal)
+                init_bal = parse_currency_num(r.get("Initial Balance"), 0.0)
+                curr_bal = parse_currency_num(r.get("Current Balance"), init_bal)
                 accounts.append(Account(
                     id=str(r.get("ID", "")),
                     account_name=str(r.get("Account Name", "")),
@@ -96,21 +130,39 @@ class SheetsClient:
             records = ws.get_all_records()
             budgets = {}
             for r in records:
-                cat_name = str(r.get("Category", r.get("Category Name", r.get("Budget Category", r.get("Name", ""))))).strip()
-                if cat_name:
-                    def parse_num(val, default=0.0):
-                        if isinstance(val, (int, float)):
-                            return float(val)
-                        try:
-                            clean_str = str(val).strip().replace(".", "").replace(",", ".")
-                            return float(clean_str) if clean_str else default
-                        except Exception:
-                            return default
+                cat_name = ""
+                amt_val = 0.0
 
-                    amt = parse_num(r.get("Amount", r.get("Budget", r.get("Budget Amount", r.get("Limit", 0)))))
-                    budgets[cat_name] = amt
+                # Search through record keys for Category and Amount fields
+                for k, v in r.items():
+                    k_lower = str(k).strip().lower()
+                    if k_lower in ["category", "kategori", "category name", "budget category", "kategori budget", "nama", "name"]:
+                        if v:
+                            cat_name = str(v).strip()
+                    elif k_lower in ["amount", "nominal", "budget", "nilai", "batas", "batas budget", "limit", "jumlah", "pagu", "budget amount", "monthly budget"]:
+                        amt_val = parse_currency_num(v, 0.0)
+
+                # Fallback if cat_name empty: inspect string values
+                if not cat_name:
+                    for k, v in r.items():
+                        v_str = str(v).strip()
+                        if v_str and not v_str.replace(".", "").replace(",", "").isdigit() and not v_str.lower().startswith("rp"):
+                            cat_name = v_str
+                            break
+
+                # Fallback if amt_val still 0: inspect numeric values
+                if amt_val == 0.0:
+                    for k, v in r.items():
+                        parsed = parse_currency_num(v, 0.0)
+                        if parsed > 0:
+                            amt_val = parsed
+                            break
+
+                if cat_name and amt_val > 0:
+                    budgets[cat_name] = amt_val
             return budgets
         except Exception as e:
+            logger.warning(f"Error fetching budgets from Google Sheets: {e}")
             return {}
 
     def append_transaction(self, tx: Transaction):
@@ -126,15 +178,6 @@ class SheetsClient:
         txs = []
         for r in records:
             if r.get("ID"):
-                def parse_num(val, default=0.0):
-                    if isinstance(val, (int, float)):
-                        return float(val)
-                    try:
-                        clean_str = str(val).strip().replace(".", "").replace(",", ".")
-                        return float(clean_str) if clean_str else default
-                    except Exception:
-                        return default
-
                 def parse_int(val, default=100):
                     if isinstance(val, int):
                         return val
@@ -151,7 +194,7 @@ class SheetsClient:
                     business=str(r.get("Business", "Household")),
                     category=str(r.get("Category", "Lainnya")),
                     account=str(r.get("Account", "Cash")),
-                    amount=parse_num(r.get("Amount", 0)),
+                    amount=parse_currency_num(r.get("Amount", 0)),
                     description=str(r.get("Description", "")),
                     source=str(r.get("Source", "Telegram")),
                     ai_confidence=parse_int(r.get("AI Confidence", 100))
