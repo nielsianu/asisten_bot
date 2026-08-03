@@ -27,6 +27,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "secara otomatis ke Google Sheets.\n\n"
         "📌 *Perintah Utama:*\n"
         "• `/rekap` - Lihat saldo & ringkasan transaksi\n"
+        "• `/budget [bulan]` - Lihat sisa anggaran per kategori\n"
         "• `/report [bulan]` - Lihat tabel transaksi per bulan\n"
         "• `/chart` - Grafik pengeluaran (merah) vs pemasukan (hijau)\n"
         "• `/pdf [tahun]` - Download laporan keuangan PDF profesional\n"
@@ -54,6 +55,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• `/start` - Inisialisasi bot & pesan selamat datang\n"
         "• `/help` - Tampilkan panduan & semua perintah bot\n"
         "• `/rekap [bulan] [tahun]` - Rekap keuangan bulanan (contoh: `/rekap`, `/rekap juni 2026`)\n"
+        "• `/budget [bulan]` - Sisa anggaran bulanan (contoh: `/budget`, `/budget juli`)\n"
         "• `/report [bulan] [tahun]` - Tabel daftar transaksi per bulan (contoh: `/report`, `/report juli`)\n"
         "• `/chart` - Gambar grafik batang perbandingan pengeluaran vs pemasukan per bulan\n"
         "• `/pdf [tahun]` - File PDF Laporan Keuangan Tahunan (contoh: `/pdf`, `/pdf 2026`)\n"
@@ -440,5 +442,17 @@ async def pdf_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"PDF report generation error: {e}", exc_info=True)
         await update.message.reply_text(f"⚠️ Gagal membuat file PDF: {e}")
+
+
+async def budget_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for /budget command: Displays remaining budget summary for current month."""
+    if not is_user_allowed(update.effective_user):
+        return
+
+    from app.services.report_service import ReportService
+    target_month = parse_target_month(context.args or [])
+
+    report_text = ReportService.generate_budget_report(target_month)
+    await update.message.reply_text(report_text, parse_mode="Markdown")
 
 

@@ -71,21 +71,47 @@ class SheetsClient:
         return accounts
 
     def fetch_categories(self) -> List[Category]:
-        """Fetch all active categories from Categories worksheet."""
+        """Fetch all active categories from Categories worksheet (including Column G Budget)."""
         ws = self.spreadsheet.worksheet("Categories")
         records = ws.get_all_records()
         categories = []
         for r in records:
             if str(r.get("Active", "TRUE")).upper() == "TRUE":
+                budget_val = str(r.get("Budget", r.get("budget", ""))).strip()
                 categories.append(Category.from_raw_keywords(
                     id=str(r.get("ID", "")),
                     business=str(r.get("Business", "Household")),
                     type=str(r.get("Type", "Expense")),
                     category_name=str(r.get("Category Name", "")),
                     keywords_str=str(r.get("Keywords", "")),
+                    budget_category=budget_val if budget_val else None,
                     active=True
                 ))
         return categories
+
+    def fetch_budgets(self) -> Dict[str, float]:
+        """Fetch budget limits from Budget worksheet."""
+        try:
+            ws = self.spreadsheet.worksheet("Budget")
+            records = ws.get_all_records()
+            budgets = {}
+            for r in records:
+                cat_name = str(r.get("Category", r.get("Category Name", r.get("Budget Category", r.get("Name", ""))))).strip()
+                if cat_name:
+                    def parse_num(val, default=0.0):
+                        if isinstance(val, (int, float)):
+                            return float(val)
+                        try:
+                            clean_str = str(val).strip().replace(".", "").replace(",", ".")
+                            return float(clean_str) if clean_str else default
+                        except Exception:
+                            return default
+
+                    amt = parse_num(r.get("Amount", r.get("Budget", r.get("Budget Amount", r.get("Limit", 0)))))
+                    budgets[cat_name] = amt
+            return budgets
+        except Exception as e:
+            return {}
 
     def append_transaction(self, tx: Transaction):
         """Append a transaction row to Transactions worksheet."""

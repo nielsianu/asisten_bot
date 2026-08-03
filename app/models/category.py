@@ -9,10 +9,11 @@ class Category(BaseModel):
     type: str  # Expense, Income
     category_name: str
     keywords: List[str] = Field(default_factory=list)
+    budget_category: Optional[str] = None
     active: bool = True
 
     @classmethod
-    def from_raw_keywords(cls, id: str, business: str, type: str, category_name: str, keywords_str: str, active: bool = True):
+    def from_raw_keywords(cls, id: str, business: str, type: str, category_name: str, keywords_str: str, active: bool = True, budget_category: Optional[str] = None):
         kw_list = [k.strip().lower() for k in keywords_str.split(",") if k.strip()]
         return cls(
             id=id,
@@ -20,5 +21,6 @@ class Category(BaseModel):
             type=type,
             category_name=category_name,
             keywords=kw_list,
+            budget_category=budget_category if budget_category else None,
             active=active
         )

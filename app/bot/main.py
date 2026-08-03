@@ -6,7 +6,7 @@ from app.database.connection import init_db
 from app.services.sheet_sync import sync_sheet_cache
 from app.bot.handlers import (
     start_command, help_command, status_command, sync_command, rekap_command,
-    saldo_command, top_command, undo_command, report_command, chart_command, pdf_command,
+    saldo_command, top_command, undo_command, report_command, chart_command, pdf_command, budget_command,
     handle_text_message, handle_callback_query
 )
 
@@ -24,6 +24,7 @@ async def post_init(application):
     """Register command list in Telegram UI automatically on startup."""
     commands = [
         BotCommand("rekap", "Lihat rekap keuangan bulanan"),
+        BotCommand("budget", "Lihat sisa anggaran per kategori"),
         BotCommand("report", "Lihat tabel transaksi per bulan"),
         BotCommand("chart", "Grafik pengeluaran vs pemasukan per bulan"),
         BotCommand("pdf", "Download laporan keuangan PDF tahunan"),
@@ -63,6 +64,7 @@ def build_application():
     app.add_handler(CommandHandler("status", status_command))
     app.add_handler(CommandHandler("sync", sync_command))
     app.add_handler(CommandHandler("rekap", rekap_command))
+    app.add_handler(CommandHandler("budget", budget_command))
     app.add_handler(CommandHandler("report", report_command))
     app.add_handler(CommandHandler("chart", chart_command))
     app.add_handler(CommandHandler("pdf", pdf_command))

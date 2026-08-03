@@ -415,3 +415,101 @@ class ReportService:
         doc.build(story)
         logger.info(f"Annual PDF report generated successfully at {output_path}")
         return output_path
+
+    @classmethod
+    def generate_budget_report(cls, target_month: Optional[str] = None) -> str:
+        """Generate remaining budget summary for specified month (YYYY-MM)."""
+        if not target_month:
+            target_month = datetime.now().strftime("%Y-%m")
+
+        year_str, month_num = target_month.split("-")
+        month_name = MONTH_NAMES_ID.get(month_num, month_num)
+
+        # 1. Fetch budget reference limits from Google Sheets
+        sheets_budgets = {}
+        categories = []
+        try:
+            from app.sheets.client import SheetsClient
+            client = SheetsClient()
+            sheets_budgets = client.fetch_budgets()
+            categories = client.fetch_categories()
+        except Exception as e:
+            logger.warning(f"Error fetching budget/category data from Sheets: {e}")
+            categories = CacheRepository.get_cached_categories()
+
+        # Default budget targets if sheet is empty or not configured
+        default_budgets = {
+            "Belanja Dapur": 2000000.0,
+            "Tagihan": 1500000.0,
+            "Transport": 500000.0,
+            "Jajan": 500000.0
+        }
+
+        budget_limits = {**default_budgets, **sheets_budgets}
+
+        # 2. Build Category -> Budget Category mapping
+        cat_to_budget = {}
+        for c in categories:
+            if c.budget_category:
+                cat_to_budget[c.category_name.lower()] = c.budget_category
+            else:
+                cat_to_budget[c.category_name.lower()] = c.category_name
+
+        # 3. Fetch expenses for target month
+        all_txs = cls.get_all_transactions()
+        month_expenses = [t for t in all_txs if t.date.startswith(target_month) and t.type == "Expense"]
+
+        spent_per_budget: Dict[str, float] = defaultdict(float)
+
+        for t in month_expenses:
+            cat_lower = t.category.lower()
+            mapped_budget = cat_to_budget.get(cat_lower, t.category)
+
+            # Match against known budget categories (case-insensitive)
+            matched = None
+            for b_name in budget_limits.keys():
+                if b_name.lower() == mapped_budget.lower() or b_name.lower() in cat_lower or mapped_budget.lower() in b_name.lower():
+                    matched = b_name
+                    break
+
+            if matched:
+                spent_per_budget[matched] += t.amount
+
+        # Build output message
+        lines = [
+            f"🎯 *RINGKASAN ANGGARAN BULANAN ({month_name.upper()} {year_str})*",
+            ""
+        ]
+
+        total_budget = 0.0
+        total_spent = 0.0
+
+        for b_name, limit in budget_limits.items():
+            spent = spent_per_budget.get(b_name, 0.0)
+            remaining = limit - spent
+            pct = (spent / limit * 100.0) if limit > 0 else 0.0
+
+            total_budget += limit
+            total_spent += spent
+
+            status_icon = "⚠️ *Over Budget!*" if remaining < 0 else ""
+            rem_sign = "-" if remaining < 0 else ""
+            rem_abs = abs(remaining)
+
+            lines.append(f"• *{b_name}*")
+            lines.append(f"  - Budget: Rp {limit:,.0f}".replace(",", "."))
+            lines.append(f"  - Terpakai: Rp {spent:,.0f} ({pct:.1f}%) {status_icon}".replace(",", "."))
+            lines.append(f"  - 💵 Sisa: *{rem_sign}Rp {rem_abs:,.0f}*".replace(",", "."))
+            lines.append("")
+
+        lines.append("-" * 35)
+        total_remaining = total_budget - total_spent
+        total_pct = (total_spent / total_budget * 100.0) if total_budget > 0 else 0.0
+        tot_rem_sign = "-" if total_remaining < 0 else ""
+        tot_rem_abs = abs(total_remaining)
+
+        lines.append(f"📊 *Total Budget:* Rp {total_budget:,.0f}".replace(",", "."))
+        lines.append(f"💸 *Total Terpakai:* Rp {total_spent:,.0f} ({total_pct:.1f}%)".replace(",", "."))
+        lines.append(f"💰 *Total Sisa Budget:* *{tot_rem_sign}Rp {tot_rem_abs:,.0f}*".replace(",", "."))
+
+        return "\n".join(lines)
