@@ -124,45 +124,21 @@ class SheetsClient:
         return categories
 
     def fetch_budgets(self) -> Dict[str, float]:
-        """Fetch budget limits from Budget worksheet."""
+        """Fetch budget limits directly from Budget worksheet (Category & Monthly Budget columns)."""
         try:
             ws = self.spreadsheet.worksheet("Budget")
             records = ws.get_all_records()
             budgets = {}
             for r in records:
-                cat_name = ""
-                amt_val = 0.0
-
-                # Search through record keys for Category and Amount fields
-                for k, v in r.items():
-                    k_lower = str(k).strip().lower()
-                    if k_lower in ["category", "kategori", "category name", "budget category", "kategori budget", "nama", "name"]:
-                        if v:
-                            cat_name = str(v).strip()
-                    elif k_lower in ["amount", "nominal", "budget", "nilai", "batas", "batas budget", "limit", "jumlah", "pagu", "budget amount", "monthly budget"]:
-                        amt_val = parse_currency_num(v, 0.0)
-
-                # Fallback if cat_name empty: inspect string values
-                if not cat_name:
-                    for k, v in r.items():
-                        v_str = str(v).strip()
-                        if v_str and not v_str.replace(".", "").replace(",", "").isdigit() and not v_str.lower().startswith("rp"):
-                            cat_name = v_str
-                            break
-
-                # Fallback if amt_val still 0: inspect numeric values
-                if amt_val == 0.0:
-                    for k, v in r.items():
-                        parsed = parse_currency_num(v, 0.0)
-                        if parsed > 0:
-                            amt_val = parsed
-                            break
+                cat_name = str(r.get("Category", r.get("Kategori", ""))).strip()
+                raw_amt = r.get("Monthly Budget", r.get("Amount", r.get("Budget", 0)))
+                amt_val = parse_currency_num(raw_amt, 0.0)
 
                 if cat_name and amt_val > 0:
                     budgets[cat_name] = amt_val
             return budgets
         except Exception as e:
-            logger.warning(f"Error fetching budgets from Google Sheets: {e}")
+            logger.warning(f"Error fetching Budget worksheet: {e}")
             return {}
 
     def append_transaction(self, tx: Transaction):

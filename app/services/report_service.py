@@ -437,32 +437,21 @@ class ReportService:
             logger.warning(f"Error fetching budget/category data from Sheets: {e}")
             categories = CacheRepository.get_cached_categories()
 
-        # Default budget targets if sheet is empty or not configured
-        default_budgets = {
+        # Source of truth: Use sheets_budgets directly from Google Sheets tab "Budget"
+        budget_limits = sheets_budgets if sheets_budgets else {
             "Belanja Dapur": 2000000.0,
-            "Tagihan": 1500000.0,
+            "Tagihan": 1000000.0,
             "Transport": 500000.0,
             "Jajan": 500000.0
         }
-
-        budget_limits = {}
-        if sheets_budgets:
-            for s_name, s_val in sheets_budgets.items():
-                if s_val > 0:
-                    budget_limits[s_name] = s_val
-
-        # Fallback to default budgets for any standard categories not in sheets_budgets
-        for d_name, d_val in default_budgets.items():
-            if not any(b.lower() == d_name.lower() for b in budget_limits.keys()):
-                budget_limits[d_name] = d_val
 
         # 2. Build Category -> Budget Category mapping
         cat_to_budget = {}
         for c in categories:
             if c.budget_category:
-                cat_to_budget[c.category_name.lower()] = c.budget_category
+                cat_to_budget[c.category_name.lower()] = c.budget_category.strip()
             else:
-                cat_to_budget[c.category_name.lower()] = c.category_name
+                cat_to_budget[c.category_name.lower()] = c.category_name.strip()
 
         # 3. Fetch expenses for target month
         all_txs = cls.get_all_transactions()

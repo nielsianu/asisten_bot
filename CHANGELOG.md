@@ -3,6 +3,14 @@
 ## [Unreleased] - 2026-08-03
 
 ### Added
+- **Google Sheets Primary Database Architecture**: Shifted read/write operations to live Google Sheets API as single source of truth with SQLite local backup cache.
+- **Categorization & Grocery Enhancements**: Added `sayuran` and expanded grocery keywords to `Belanja Dapur` (Household) and `Bahan Baku` (Catering).
+- **New Telegram Bot Commands (`/report`, `/chart`, `/pdf`, `/budget`)**:
+  - `/report`: Generates formatted text table of monthly transactions.
+  - `/chart`: Generates matplotlib bar chart of monthly expense (red) vs income (green).
+  - `/pdf`: Generates ReportLab annual financial PDF report with executive summary, category subtotals, and 12-month breakdown.
+  - `/budget`: Reads directly from Google Sheets `"Budget"` worksheet (`Category` and `Monthly Budget` columns) and maps Category sheet Column G `Budget` to compute remaining monthly budget in real time.
+- **Automatic Telegram UI Command Menu Registration**: Added `post_init` in `main.py` calling `bot.set_my_commands()` to register slash menu autocomplete popup list in Telegram UI.
 - Project workspace structure (`app/`, `tests/`, `docs/`, `logs/`, `data/`).
 - Initial configuration files: `.env`, `.env.example`, `.gitignore`.
 - Documentation: `ROADMAP.md`, `TASK.md`, `README.md`.
