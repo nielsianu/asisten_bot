@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional
+from typing import List, Optional, Dict
 import gspread
 from google.oauth2.service_account import Credentials
 from app.config.settings import settings
